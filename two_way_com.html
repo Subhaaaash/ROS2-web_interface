@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Turtle Velocity Control + Pose Viewer</title>
+
+  <!-- Include EventEmitter2 FIRST -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/eventemitter2/6.4.5/eventemitter2.min.js"></script>
+
+  <!-- Then include roslibjs -->
+  <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; }
+    label, p { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h2>Set Linear and Angular Velocities</h2>
+  <form id="velForm">
+    <label>Linear X: <input type="number" id="linearX" step="0.1" value="2.0"></label><br>
+    <label>Angular Z: <input type="number" id="angularZ" step="0.1" value="1.8"></label><br>
+    <button type="submit">Send Velocity</button>
+  </form>
+
+  <h3>Current Turtle Pose</h3>
+  <div id="poseDisplay">
+    <p><strong>X:</strong> <span id="poseX">-</span></p>
+    <p><strong>Y:</strong> <span id="poseY">-</span></p>
+    <p><strong>Theta:</strong> <span id="poseTheta">-</span></p>
+    <p><strong>Linear Velocity:</strong> <span id="poseLinVel">-</span></p>
+    <p><strong>Angular Velocity:</strong> <span id="poseAngVel">-</span></p>
+  </div>
+
+  <script>
+    const ros = new ROSLIB.Ros({
+      url: 'ws://localhost:9090' // Update IP if needed
+    });
+
+    ros.on('connection', () => {
+      console.log('Connected to rosbridge WebSocket server.');
+    });
+
+    ros.on('error', (error) => {
+      console.error('Error connecting to rosbridge:', error);
+    });
+
+    ros.on('close', () => {
+      console.warn('Connection to rosbridge closed.');
+    });
+
+    // Publishing velocity
+    const cmdVel = new ROSLIB.Topic({
+      ros: ros,
+      name: '/turtle1/cmd_vel',
+      messageType: 'geometry_msgs/msg/Twist'
+    });
+
+    document.getElementById('velForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const linearX = parseFloat(document.getElementById('linearX').value);
+      const angularZ = parseFloat(document.getElementById('angularZ').value);
+
+      const twist = new ROSLIB.Message({
+        linear: { x: linearX, y: 0, z: 0 },
+        angular: { x: 0, y: 0, z: angularZ }
+      });
+
+      console.log('Publishing message:', twist);
+      cmdVel.publish(twist);
+    });
+
+    // Subscribing to /turtle1/pose
+    const poseListener = new ROSLIB.Topic({
+      ros: ros,
+      name: '/turtle1/pose',
+      messageType: 'turtlesim/msg/Pose'
+    });
+
+    poseListener.subscribe(function (message) {
+      document.getElementById('poseX').textContent = message.x.toFixed(2);
+      document.getElementById('poseY').textContent = message.y.toFixed(2);
+      document.getElementById('poseTheta').textContent = message.theta.toFixed(2);
+      document.getElementById('poseLinVel').textContent = message.linear_velocity.toFixed(2);
+      document.getElementById('poseAngVel').textContent = message.angular_velocity.toFixed(2);
+    });
+  </script>
+</body>
+</html>
+
